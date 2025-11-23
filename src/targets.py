@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import os
 from scipy.optimize import minimize
+
+out_dir = "C:/Users/zih028/Documents/GitHub/rl_rebalance/data"
 
 def _project_simplex_with_bounds(x0: np.ndarray,
                                  lb: np.ndarray,
@@ -72,3 +75,9 @@ def rolling_min_var_targets(
     W = pd.DataFrame({dt: w for dt, w in rows}).T
     W.columns = tickers
     return W.dropna()
+
+def save_targets_to_parquet(
+        W: pd.DataFrame,
+        path: str = "targets_minvar.parquet"
+):
+    W.to_parquet(os.path.join(out_dir, path), index=True)
