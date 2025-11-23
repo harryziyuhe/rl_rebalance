@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-def linear_sqrt_cost(
+def tc_linear_sqrt(
         delta_w: np.ndarray,
         lin_bps: np.ndarray,
         k_impact: np.ndarray,
