@@ -191,10 +191,10 @@ def train_mmc():
     )
 
     # Hyperparams
-    n_episodes=10000 # scaling up for final results
+    n_episodes=100 # scaling up for final results
     epsilon=1.0
     epsilon_min=0.01
-    epsilon_decay=0.9995 # slow decay since we have lots of episodes
+    epsilon_decay=0.95 # slow decay since we have lots of episodes
     
     # track our money
     initial_balance=100000.0
@@ -275,15 +275,15 @@ def train_mmc():
         history['final_balances'].append(current_balance)
 
         # print progress every now and then
-        if (i+1)%500==0:
+        if (i+1)%10==0:
             print(f"Ep {i+1} | Reward: {total_reward:.4f} | Loss: {loss:.5f} | Balance: ${current_balance:,.2f} | Eps: {epsilon:.3f}")
 
     # save everything
     print("Saving model and history...")
-    save_path=os.path.join(current_dir, 'mmc_portfolio_model.pth')
+    save_path=os.path.join(current_dir, 'mmc_portfolio_model_100.pth')
     agent.save(save_path)
     
-    history_path=os.path.join(current_dir, 'mmc_training_history.pkl')
+    history_path=os.path.join(current_dir, 'mmc_training_history_100.pkl')
     with open(history_path, 'wb') as f:
         pickle.dump(history, f)
         
@@ -291,3 +291,4 @@ def train_mmc():
 
 if __name__ == "__main__":
     train_mmc()
+

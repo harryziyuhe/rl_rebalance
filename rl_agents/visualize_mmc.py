@@ -17,8 +17,14 @@ def plot_training_results():
     with open(history_path, 'rb') as f:
         history = pickle.load(f)
 
-    rewards = pd.Series(history['rewards'])
-    losses = pd.Series(history['losses'])
+    # Support both new and legacy key names
+    if 'episode_rewards' in history:
+        rewards = pd.Series(history['episode_rewards'])
+        losses = pd.Series(history['episode_losses'])
+    else:
+        rewards = pd.Series(history['rewards'])
+        losses = pd.Series(history['losses'])
+
     # Handle legacy history files without balances
     if 'final_balances' in history:
         balances = pd.Series(history['final_balances'])

@@ -1,32 +1,20 @@
-"""
-Training Visualization Script
-
-This script loads and visualizes the training history from the DQN portfolio rebalancing model.
-It generates plots showing:
-- Episode rewards over time
-- Training loss progression
-- Cumulative turnover
-- Average tracking error
-
-Usage:
-    python visualize_training.py
-"""
-
-import pickle
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
+import pandas as pd
+import pickle
+import os
 
+def plot_training_results():
+    # Path setup
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    history_path = os.path.join(current_dir, 'mmc_training_history_100.pkl')
+    
+    if not os.path.exists(history_path):
+        print(f"Error: {history_path} not found. Run training first.")
+        return
 
-def plot_training_history(history_path='mmc_training_history.pkl'):
-    """
-    Load and plot training history
-
-    Parameters:
-    -----------
-    history_path : str
-        Path to the training history pickle file
-    """
-    # Load history
+    print("Loading training history...")
     with open(history_path, 'rb') as f:
         history = pickle.load(f)
 
@@ -37,32 +25,31 @@ def plot_training_history(history_path='mmc_training_history.pkl'):
         elif legacy_key in history:
             return history[legacy_key]
         elif default_val is not None:
-            # Return list of zeros matching length of rewards
-            # Assume rewards exists (it should)
             n = len(history.get('episode_rewards', history.get('rewards', [])))
             return [default_val] * n
         else:
-            raise KeyError(f"Could not find {key} or {legacy_key} in history")
+            return [] # Should ideally not happen if history is valid
 
     episode_rewards = get_metric('episode_rewards', 'rewards')
     episode_losses = get_metric('episode_losses', 'losses')
-    
-    # For turnover and TE, we default to 0.0 if missing (legacy runs didn't have them)
     episode_turnovers = get_metric('episode_turnovers', 'turnovers', default_val=0.0)
     episode_tracking_errors = get_metric('episode_tracking_errors', 'tracking_errors', default_val=0.0)
 
-    # Create figure with subplots
+    # Handle legacy history files without balances
+    if 'final_balances' in history:
+        balances = pd.Series(history['final_balances'])
+    else:
+        balances = None
+
+    # Create figure with subplots (2x2 grid)
     fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig.suptitle('Monte Carlo Agent Training Performance (100 Episodes)', fontsize=16, fontweight='bold')
     
-    # Determine title based on filename
-    model_name = "MMC" if "mmc" in history_path else "DQN"
-    fig.suptitle(f'{model_name} Portfolio Rebalancing Training History', fontsize=16, fontweight='bold')
+    window = 10
 
     # Plot 1: Episode Rewards
     ax1 = axes[0, 0]
     ax1.plot(episode_rewards, linewidth=1.5, alpha=0.7, label='Episode Reward')
-    # Add moving average
-    window = 10
     if len(episode_rewards) >= window:
         moving_avg = np.convolve(episode_rewards, np.ones(window)/window, mode='valid')
         ax1.plot(range(window-1, len(episode_rewards)), moving_avg,
@@ -113,31 +100,42 @@ def plot_training_history(history_path='mmc_training_history.pkl'):
     ax4.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig('training_history.png', dpi=300, bbox_inches='tight')
-    print("Training history plot saved to 'training_history.png'")
-    plt.show()
+    save_path = os.path.join(current_dir, 'mmc_training_plot_100.png')
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"4-panel plot saved successfully to {save_path}")
 
-    # Print summary statistics
-    print("\n" + "="*60)
-    print("Training Summary Statistics")
-    print("="*60)
-    print(f"Total Episodes: {len(episode_rewards)}")
-    print(f"\nRewards:")
-    print(f"  Mean: {np.mean(episode_rewards):.4f}")
-    print(f"  Std: {np.std(episode_rewards):.4f}")
-    print(f"  Min: {np.min(episode_rewards):.4f}")
-    print(f"  Max: {np.max(episode_rewards):.4f}")
-    print(f"\nLoss:")
-    print(f"  Mean: {np.mean(episode_losses):.6f}")
-    print(f"  Final 10 episodes avg: {np.mean(episode_losses[-10:]):.6f}")
-    print(f"\nTurnover:")
-    print(f"  Mean: {np.mean(episode_turnovers):.4f}")
-    print(f"  Total: {np.sum(episode_turnovers):.4f}")
-    print(f"\nTracking Error:")
-    print(f"  Mean: {np.mean(episode_tracking_errors):.6f}")
-    print(f"  Final 10 episodes avg: {np.mean(episode_tracking_errors[-10:]):.6f}")
-    print("="*60)
+    # Also plot portfolio value if available
+    if balances is not None:
+        plot_portfolio_value(balances, current_dir, window)
 
+def plot_portfolio_value(balances, output_dir, window):
+    plt.figure(figsize=(10, 6))
+    
+    # Plot baseline
+    plt.axhline(y=100000, color='gray', linestyle='--', label='Initial Investment ($100k)')
+    
+    # Plot balances
+    plt.plot(balances, color='green', alpha=0.6, label='Final Portfolio Value')
+    
+    # Add smoothed trend
+    balances_smooth = balances.rolling(window=window, min_periods=1).mean()
+    plt.plot(balances_smooth, color='darkgreen', linewidth=2, label=f'Trend (MA {window})')
+    
+    plt.title('Portfolio Value Growth over Training (100 Episodes)')
+    plt.xlabel('Episode')
+    plt.ylabel('Portfolio Value ($)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    # Format Y-axis as currency
+    ax = plt.gca()
+    formatter = mticker.FuncFormatter(lambda x, p: f'${x/1000:.0f}k')
+    ax.yaxis.set_major_formatter(formatter)
+    
+    plt.tight_layout()
+    save_path = os.path.join(output_dir, 'mmc_portfolio_value_100.png')
+    plt.savefig(save_path, dpi=300)
+    print(f"Portfolio value plot saved successfully to {save_path}")
 
 if __name__ == "__main__":
-    plot_training_history()
+    plot_training_results()
