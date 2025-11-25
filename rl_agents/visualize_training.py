@@ -121,4 +121,4 @@ def plot_training_history(history_path='training_history.pkl'):
 
 
 if __name__ == "__main__":
-    plot_training_history()
+    plot_training_history("/Users/georgiikuznetsov/Desktop/rl_rebalance/rl_agents/training_history.pkl")
