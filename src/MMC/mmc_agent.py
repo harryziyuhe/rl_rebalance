@@ -7,9 +7,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-
 # need to make sure dqn.py is in the same folder
-from dqn import PortfolioEnvironment, DQN as QNetwork, compute_minimum_variance_weights
+from .dqn import PortfolioEnvironment, DQN as QNetwork, compute_minimum_variance_weights
 
 class MonteCarloAgent:
     def __init__(self, state_dim, action_dim, learning_rate=1e-3, gamma=0.99, device="cpu"):

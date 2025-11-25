@@ -491,8 +491,8 @@ if __name__ == "__main__":
     )
 
     print("Saving TileQ agent and training history...")
-    agent.save("src/TilesQ/tileq_portfolio_agent.pkl")
-    with open("src/TilesQ/tileq_training_history.pkl", "wb") as f:
+    agent.save("model/tileq_portfolio_model.pkl")
+    with open("model/tileq_training_history.pkl", "wb") as f:
         pickle.dump(history, f)
 
     print()
