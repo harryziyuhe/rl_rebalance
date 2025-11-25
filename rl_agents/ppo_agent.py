@@ -58,6 +58,7 @@ class PPOAgent:
         self, 
         state_dim: int, 
         action_dim: int, 
+        hidden_dim: int = 128,
         lr: float = 3e-4, 
         gamma: float = 0.99, 
         eps_clip: float = 0.2,
@@ -67,19 +68,20 @@ class PPOAgent:
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
+        self.hidden_dim = hidden_dim
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.entropy_coef = entropy_coef
         self.k_epochs = k_epochs
         self.device = device
         
-        self.policy = ActorCritic(state_dim, action_dim, hidden_dim=128).to(device)
+        self.policy = ActorCritic(state_dim, action_dim, hidden_dim=hidden_dim).to(device)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr)
         
         # Learning Rate Scheduler
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1000, gamma=0.9)
 
-        self.policy_old = ActorCritic(state_dim, action_dim, hidden_dim=128).to(device)
+        self.policy_old = ActorCritic(state_dim, action_dim, hidden_dim=hidden_dim).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         self.mse_loss = nn.MSELoss()

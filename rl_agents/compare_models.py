@@ -78,12 +78,30 @@ def run_comparison():
     # 1. PPO Agent Evaluation
     # -----------------------------------------------------
     print("\nRunning PPO Agent...")
-    # Models are expected to be in the same directory as this script
-    ppo_model_path = os.path.join(current_dir, 'ppo_portfolio_model.pth')
-    if os.path.exists(ppo_model_path):
+    # Try to load from root first (newer model), then local
+    ppo_model_path_root = os.path.join(os.path.dirname(current_dir), 'ppo_portfolio_model.pth')
+    ppo_model_path_local = os.path.join(current_dir, 'ppo_portfolio_model.pth')
+    
+    if os.path.exists(ppo_model_path_root):
+        print(f"Loading PPO model from root: {ppo_model_path_root}")
+        ppo_model_path = ppo_model_path_root
+    elif os.path.exists(ppo_model_path_local):
+        print(f"Loading PPO model from local: {ppo_model_path_local}")
+        ppo_model_path = ppo_model_path_local
+    else:
+        ppo_model_path = None
+
+    if ppo_model_path:
         device = "mps" if torch.backends.mps.is_available() else "cpu"
-        ppo_agent = PPOAgent(state_dim, action_dim, device=device)
-        ppo_agent.load(ppo_model_path)
+        
+        # Try loading with default hidden_dim=128 first
+        try:
+            ppo_agent = PPOAgent(state_dim, action_dim, hidden_dim=128, device=device)
+            ppo_agent.load(ppo_model_path)
+        except RuntimeError:
+            print("Model mismatch for 128 dim, trying 64 dim...")
+            ppo_agent = PPOAgent(state_dim, action_dim, hidden_dim=64, device=device)
+            ppo_agent.load(ppo_model_path)
         
         state = env.reset()
         ppo_values = [1.0]
@@ -101,7 +119,7 @@ def run_comparison():
             state = next_state
         print(f"PPO Action Dist: {pd.Series(ppo_actions).value_counts(normalize=True).sort_index().to_dict()}")
     else:
-        print(f"Warning: {ppo_model_path} not found. Skipping PPO.")
+        print(f"Warning: PPO model not found in root or local. Skipping PPO.")
         ppo_values = []
 
     # -----------------------------------------------------
