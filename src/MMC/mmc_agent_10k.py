@@ -193,7 +193,7 @@ def train_mmc():
     )
 
     # Hyperparams
-    n_episodes=50 # Reduced for testing
+    n_episodes=10000 # 10000 Episodes model
     epsilon=1.0
     epsilon_min=0.01
     epsilon_decay=0.9995 # slow decay since we have lots of episodes
@@ -254,9 +254,6 @@ def train_mmc():
         history['rewards'].append(total_reward)
         history['losses'].append(loss)
         history['turnovers'].append(total_turnover)
-        # Average tracking error per step is usually more meaningful, but let's store total for now or average?
-        # DQN stores average: episode_tracking_errors.append(episode_tracking_error / max(steps, 1))
-        # Let's match DQN
         history['tracking_errors'].append(total_tracking_error / max(steps, 1))
 
         # print progress every now and then
@@ -265,10 +262,10 @@ def train_mmc():
 
     # save everything
     print("Saving model and history...")
-    save_path=os.path.join(current_dir, 'mmc_portfolio_model.pth')
+    save_path=os.path.join(current_dir, 'mmc_portfolio_model_10k.pth')
     agent.save(save_path)
     
-    history_path=os.path.join(current_dir, 'mmc_training_history.pkl')
+    history_path=os.path.join(current_dir, 'mmc_training_history_10k.pkl')
     with open(history_path, 'wb') as f:
         pickle.dump(history, f)
         
@@ -276,3 +273,4 @@ def train_mmc():
 
 if __name__ == "__main__":
     train_mmc()
+
