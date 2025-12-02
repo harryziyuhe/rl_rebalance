@@ -8,12 +8,13 @@ import sys
 
 # Ensure imports work
 current_dir = os.path.dirname(os.path.abspath(__file__))
+model_dir = os.path.join(os.path.dirname(current_dir), 'model')
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from ppo_agent import PPOAgent
-from mmc_agent import MonteCarloAgent
-from dqn import DQNAgent, PortfolioEnvironment, compute_minimum_variance_weights
+from rl_agents.ppo_agent import PPOAgent
+from rl_agents.mmc_agent import MonteCarloAgent
+from rl_agents.dqn import DQNAgent, PortfolioEnvironment, compute_minimum_variance_weights
 
 # ---------------------------------------------------------
 # Comparison Script
@@ -79,8 +80,8 @@ def run_comparison():
     # -----------------------------------------------------
     print("\nRunning PPO Agent...")
     # Try to load from root first (newer model), then local
-    ppo_model_path_root = os.path.join(os.path.dirname(current_dir), 'ppo_portfolio_model.pth')
-    ppo_model_path_local = os.path.join(current_dir, 'ppo_portfolio_model.pth')
+    ppo_model_path_root = os.path.join(os.path.dirname(model_dir), 'ppo_portfolio_model.pth')
+    ppo_model_path_local = os.path.join(model_dir, 'ppo_portfolio_model.pth')
     
     if os.path.exists(ppo_model_path_root):
         print(f"Loading PPO model from root: {ppo_model_path_root}")
@@ -126,7 +127,7 @@ def run_comparison():
     # 2. DQN Agent Evaluation
     # -----------------------------------------------------
     print("\nRunning DQN Agent...")
-    dqn_model_path = os.path.join(current_dir, 'dqn_portfolio_model.pth')
+    dqn_model_path = os.path.join(model_dir, 'dqn_portfolio_model.pth')
     if os.path.exists(dqn_model_path):
         dqn_agent = DQNAgent(state_dim, action_dim)
         # If device mismatch (cuda vs cpu), handle inside agent or force load map_location
@@ -156,7 +157,7 @@ def run_comparison():
     # 3. MCMC Agent Evaluation
     # -----------------------------------------------------
     print("\nRunning MCMC Agent...")
-    mmc_model_path = os.path.join(current_dir, 'mmc_portfolio_model.pth')
+    mmc_model_path = os.path.join(model_dir, 'mmc_portfolio_model.pth')
     if os.path.exists(mmc_model_path):
         # MCMC agent uses the same network structure as DQN (QNetwork from dqn.py)
         # Assuming MonteCarloAgent stores network state dict
@@ -202,13 +203,13 @@ def run_comparison():
     # Let's simulate MinVariance Target (Theoretical limit ignoring costs/tracking error constraints slightly)
     # Or just use the env with fixed action.
     
-    # Periodic (Monthly) - approximated by rebalancing every 21 days
+    # Periodic (Weekly) - approximated by rebalancing every 5 days
     state = env.reset()
     periodic_values = [1.0]
     done = False
     steps = 0
     while not done:
-        if steps % 21 == 0:
+        if steps % 5 == 0:
             action = 4 # Full rebalance
         else:
             action = 0 # Hold
