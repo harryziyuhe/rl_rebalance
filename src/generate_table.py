@@ -10,6 +10,7 @@ import pickle
 # -----------------------------------------------------------------------------
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
+model_dir = os.path.join(os.path.dirname(current_dir), 'model')
 sys.path.append(root_dir)
 sys.path.append(os.path.join(root_dir, 'src'))
 
@@ -21,12 +22,7 @@ from src.baselines import simulate_periodic, simulate_band
 from rl_agents.dqn import DQNAgent, PortfolioEnvironment, compute_minimum_variance_weights
 from rl_agents.ppo_agent import PPOAgent
 from rl_agents.mmc_agent import MonteCarloAgent
-# Try importing TileQ
-try:
-    from src.TilesQ.tiles_q import TileQAgent
-    TILEQ_AVAILABLE = True
-except ImportError:
-    TILEQ_AVAILABLE = False
+from rl_agents.TilesQ import TileQAgent
 
 def evaluate_strategy(pnl, tc_bps):
     return metrics_from_pnl(np.array(pnl), np.array(tc_bps))
@@ -114,24 +110,29 @@ def main():
     # --- Baselines ---
     print("Running Baselines...")
     
-    # Band 2%
-    res_band_2 = simulate_band(returns_train, target_weights, band=0.02, transaction_cost=0.001)
-    m_band2 = evaluate_strategy(res_band_2['return'], res_band_2['tc'] * 10000) # tc is cost, *10000 for bps
-    results.append(('Band_2%', m_band2))
+    # Band 1%
+    res_band_1 = simulate_band(returns_train, target_weights, band=0.01, tc_rate=0.001)
+    m_band1 = evaluate_strategy(res_band_1['pnl'], res_band_1['tc'] * 10000) # tc is cost, *10000 for bps
+    results.append(('Band_1%', m_band1))
     
-    # Band 4%
-    res_band_4 = simulate_band(returns_train, target_weights, band=0.04, transaction_cost=0.001)
-    m_band4 = evaluate_strategy(res_band_4['return'], res_band_4['tc'] * 10000)
-    results.append(('Band_4%', m_band4))
+    # Band 5%
+    res_band_2 = simulate_band(returns_train, target_weights, band=0.05, tc_rate=0.001)
+    m_band2 = evaluate_strategy(res_band_2['pnl'], res_band_2['tc'] * 10000)
+    results.append(('Band_5%', m_band2))
     
+    # Weekly
+    res_weekly = simulate_periodic(returns_train, target_weights, rebalance_freq='W-MON', tc_rate=0.001)
+    m_weekly = evaluate_strategy(res_weekly['pnl'], res_weekly['tc'] * 10000)
+    results.append(('Weekly', m_weekly))
+
     # Monthly
-    res_monthly = simulate_periodic(returns_train, target_weights, rebalance_freq='M', transaction_cost=0.001)
-    m_monthly = evaluate_strategy(res_monthly['return'], res_monthly['tc'] * 10000)
+    res_monthly = simulate_periodic(returns_train, target_weights, rebalance_freq='M', tc_rate=0.001)
+    m_monthly = evaluate_strategy(res_monthly['pnl'], res_monthly['tc'] * 10000)
     results.append(('Monthly', m_monthly))
     
     # --- DQN ---
     print("Running DQN...")
-    dqn_path = os.path.join(current_dir, 'dqn_portfolio_model.pth')
+    dqn_path = os.path.join(model_dir, 'dqn_portfolio_model.pth')
     if os.path.exists(dqn_path):
         dqn_agent = DQNAgent(state_dim, action_dim)
         try:
@@ -144,7 +145,7 @@ def main():
     
     # --- MMC ---
     print("Running MMC...")
-    mmc_path = os.path.join(current_dir, 'mmc_portfolio_model.pth')
+    mmc_path = os.path.join(model_dir, 'mmc_portfolio_model.pth')
     if os.path.exists(mmc_path):
         mmc_agent = MonteCarloAgent(state_dim, action_dim, device=device)
         try:
@@ -157,9 +158,9 @@ def main():
 
     # --- PPO ---
     print("Running PPO...")
-    ppo_path = os.path.join(current_dir, 'ppo_portfolio_model.pth')
+    ppo_path = os.path.join(model_dir, 'ppo_portfolio_model.pth')
     if os.path.exists(ppo_path):
-        ppo_agent = PPOAgent(state_dim, action_dim, device=device)
+        ppo_agent = PPOAgent(state_dim, action_dim, hidden_dim=64, device=device)
         try:
             ppo_agent.load(ppo_path)
             pnl, tc = run_agent_backtest(ppo_agent, env, 'ppo', device)
@@ -169,29 +170,28 @@ def main():
             print(f"PPO Error: {e}")
             
     # --- TileQ ---
-    if TILEQ_AVAILABLE:
-        print("Running TileQ...")
-        tileq_path = os.path.join(root_dir, 'src', 'TilesQ', 'tileq_portfolio_agent.pkl')
-        if os.path.exists(tileq_path):
-            # Init with same params as tiles_q.py
-            state_low = np.full(state_dim, -1.0, dtype=float)
-            state_high = np.full(state_dim, 1.0, dtype=float)
-            tileq_agent = TileQAgent(
-                state_dim=state_dim, 
-                action_dim=action_dim,
-                num_tilings=8,
-                tiles_per_dim=8,
-                n_features=4096,
-                state_low=state_low,
-                state_high=state_high
-            )
-            try:
-                tileq_agent.load(tileq_path)
-                pnl, tc = run_agent_backtest(tileq_agent, env, 'tileq')
-                m_tileq = evaluate_strategy(pnl, tc)
-                results.append(('TileQ', m_tileq))
-            except Exception as e:
-                print(f"TileQ Error: {e}")
+    print("Running TileQ...")
+    tileq_path = os.path.join(model_dir, 'tileq_portfolio_model.pkl')
+    if os.path.exists(tileq_path):
+        # Init with same params as tiles_q.py
+        state_low = np.full(state_dim, -1.0, dtype=float)
+        state_high = np.full(state_dim, 1.0, dtype=float)
+        tileq_agent = TileQAgent(
+            state_dim=state_dim, 
+            action_dim=action_dim,
+            num_tilings=8,
+            tiles_per_dim=8,
+            n_features=4096,
+            state_low=state_low,
+            state_high=state_high
+        )
+        try:
+            tileq_agent.load(tileq_path)
+            pnl, tc = run_agent_backtest(tileq_agent, env, 'tileq')
+            m_tileq = evaluate_strategy(pnl, tc)
+            results.append(('TileQ', m_tileq))
+        except Exception as e:
+            print(f"TileQ Error: {e}")
     
     # --- Output Table ---
     print("\n\nPerformance Table (Train Period)")
